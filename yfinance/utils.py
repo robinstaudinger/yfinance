@@ -22,6 +22,7 @@
 from __future__ import print_function
 
 import requests as _requests
+from bs4 import BeautifulSoup
 import re as _re
 import pandas as _pd
 import numpy as _np
@@ -61,6 +62,26 @@ def get_json(url, proxy=None):
         r'\{[\'|\"]raw[\'|\"]:(.*?),(.*?)\}', r'\1', new_data)
 
     return _json.loads(new_data)
+
+
+def get_financial_row(url, row_title, proxy=None, in_thousands=True):
+    """ 
+    Get a row from given url based on 
+    Params
+    url: where to fetch the data from must be from finance.yahoo.com
+    row_title: title of the metric that is fetched from the table
+    proxy(optional): use proxy or not
+    in_thousands(optional): whether the values given in thousands, defaults to true
+    returns
+    list: parsed values from given financial statement """
+    html = _requests.get(url=url, proxies=proxy).content
+    soup = BeautifulSoup(html, 'html.parser')
+    # take the last four cols to be consistent with other data
+    vals = soup.find(
+        'div', string=f"{row_title}").parent.parent.findAll('span')[-4:]
+    magnitude = 1000 if in_thousands else 1
+    parsed_vals = [float(val.text.replace(',', ''))*magnitude for val in vals]
+    return parsed_vals
 
 
 def camel2title(o):

@@ -283,7 +283,7 @@ class TickerBase():
         url = "{}/{}/holders".format(self._scrape_url, self.ticker)
         holders = _pd.read_html(url)
         self._major_holders = holders[0]
-        self._institutional_holders = holders[1] if len(holders)>1 else {}
+        self._institutional_holders = holders[1] if len(holders) > 1 else {}
         if 'Date Reported' in self._institutional_holders:
             self._institutional_holders['Date Reported'] = _pd.to_datetime(
                 self._institutional_holders['Date Reported'])
@@ -314,8 +314,10 @@ class TickerBase():
         for item in items:
             if isinstance(data.get(item), dict):
                 self._info.update(data[item])
-
-        self._info['regularMarketPrice'] = data['financialData']['currentPrice']
+        if data.get('financialData'):
+            self._info['regularMarketPrice'] = data['financialData']['currentPrice']
+        else:
+            self._info['regularMarketPrice'] = None
         self._info['logo_url'] = ""
         try:
             domain = self._info['website'].split(
@@ -351,7 +353,8 @@ class TickerBase():
             pass
 
         # get fundamentals
-        financials_url = "{}/{}/financials".format(self._scrape_url, self.ticker)
+        financials_url = "{}/{}/financials".format(
+            self._scrape_url, self.ticker)
         data = utils.get_json(financials_url, proxy)
 
         # generic patterns
@@ -390,6 +393,26 @@ class TickerBase():
         if as_dict:
             return data.to_dict()
         return data
+
+    def get_row_from_financials(self, financial, row_title, proxy=None, in_thousands=True):
+        """ 
+        Get a row from given financial based on 
+        Params
+        url: where to fetch the data from must be from finance.yahoo.com
+        row_title: title of the metric that is fetched from the table
+        proxy(optional): use proxy or not
+        in_thousands(optional): whether the values given in thousands, defaults to true
+        returns
+        list: parsed values from given financial statement (latest 4 years) """
+        if financial not in ["financials", "income-statement", "balance-sheet", "cash-flow"]:
+            raise ValueError(
+                'financial must be one of ["financials","income-statement","balance-sheet", "cash-flow"]')
+        if financial == "income-statement":
+            financial = "financials"
+        url = f"{self._scrape_url}/{self.ticker}/{financial}"
+        values = utils.get_financial_row(
+            url, row_title, proxy=proxy, in_thousands=in_thousands)
+        return values
 
     def get_calendar(self, proxy=None, as_dict=False, *args, **kwargs):
         self._get_fundamentals(proxy)
